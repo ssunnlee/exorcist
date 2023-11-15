@@ -2,6 +2,25 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import numpy as np
+from tqdm import tqdm
+
+# Gym
+import gym
+# import gym_pygame
+
+env_id = "ALE/DemonAttack-v5"
+env = gym.make(env_id)
+eval_env = gym.make(env_id)
+s_size = env.observation_space.shape
+a_size = env.action_space.n
+
+HEIGHT = s_size[0]
+WIDTH = s_size[1]
+CHANNEL_SIZE = s_size[2]
+DIM = HEIGHT * WIDTH * CHANNEL_SIZE
+
+
 # Hyperparameters
 LEARNING_RATE = 1e-4
 GAMMA = 0.99
@@ -9,6 +28,7 @@ EPOCHS = 10
 CLIP_EPSILON = 0.2
 BATCH_SIZE = 64
 
+"""
 # Sample environment with discrete actions (replace with your environment)
 class SampleEnv:
     def reset(self):
@@ -17,6 +37,7 @@ class SampleEnv:
         return torch.rand(4), torch.rand(1).item(), False, {}
 
 env = SampleEnv()
+"""
 
 class PolicyNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
@@ -27,9 +48,13 @@ class PolicyNetwork(nn.Module):
             nn.Linear(hidden_dim, output_dim),
             nn.Softmax(dim=1)
         )
-
     def forward(self, state):
-        return self.model(state)
+        #print(type(state[0]))
+        #print(state[0].shape)
+        #print(state)
+        #torch.tensor(state[0])
+        state = state.reshape(1, -1)
+        return self.model(torch.tensor(state, dtype=torch.float32))
 
 class ValueNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim):
@@ -43,7 +68,7 @@ class ValueNetwork(nn.Module):
     def forward(self, state):
         return self.model(state)
 
-policy_net = PolicyNetwork(4, 128, 2)
+policy_net = PolicyNetwork(DIM, 128, 6)
 value_net = ValueNetwork(4, 128)
 policy_optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
 value_optimizer = optim.Adam(value_net.parameters(), lr=LEARNING_RATE)
@@ -58,14 +83,16 @@ def compute_returns(rewards):
     return torch.tensor(returns)
 
 def ppo_step():
-    state = env.reset()
+    state = env.reset()[0]
     done = False
     states, actions, log_probs_old, rewards = [], [], [], []
 
     while not done:
         action_probs = policy_net(state)
         action = torch.multinomial(action_probs, 1).item()
-        next_state, reward, done, _ = env.step(action)
+        #print("\n", action)
+        #print(env.step(action))
+        next_state, reward, done, _truncated, info = env.step(action)
 
         states.append(state)
         actions.append(action)
@@ -105,5 +132,5 @@ def ppo_step():
             value_optimizer.step()
 
 # Training loop
-for _ in range(1000):
+for _ in tqdm(range(1000)):
     ppo_step()
