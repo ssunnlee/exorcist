@@ -10,15 +10,15 @@ import gym
 # import gym_pygame
 
 env_id = "ALE/DemonAttack-v5"
-env = gym.make(env_id)
-eval_env = gym.make(env_id)
+env = gym.make(env_id, obs_type="grayscale")
+eval_env = gym.make(env_id, obs_type="grayscale")
 s_size = env.observation_space.shape
 a_size = env.action_space.n
 
 HEIGHT = s_size[0]
 WIDTH = s_size[1]
-CHANNEL_SIZE = s_size[2]
-DIM = HEIGHT * WIDTH * CHANNEL_SIZE
+#CHANNEL_SIZE = s_size[2]
+DIM = HEIGHT * WIDTH
 
 
 # Hyperparameters
@@ -68,8 +68,8 @@ class ValueNetwork(nn.Module):
     def forward(self, state):
         return self.model(state)
 
-policy_net = PolicyNetwork(DIM, 128, 6)
-value_net = ValueNetwork(4, 128)
+policy_net = PolicyNetwork(DIM, 16, 6)
+value_net = ValueNetwork(4, 16)
 policy_optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
 value_optimizer = optim.Adam(value_net.parameters(), lr=LEARNING_RATE)
 criterion = nn.MSELoss()
@@ -87,6 +87,7 @@ def ppo_step():
     done = False
     states, actions, log_probs_old, rewards = [], [], [], []
 
+    counter = 0
     while not done:
         action_probs = policy_net(state)
         action = torch.multinomial(action_probs, 1).item()
@@ -100,6 +101,10 @@ def ppo_step():
         rewards.append(reward)
 
         state = next_state
+        print(counter)
+        if counter == 100000:
+            done = True
+        counter += 1
 
     returns = compute_returns(rewards)
     values = value_net(torch.stack(states))
