@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from PPO.py import PPO
+from PPO import PPO
 
 
 class GeneticAlgorithmForPPO:
@@ -13,18 +13,18 @@ class GeneticAlgorithmForPPO:
         self.latest_two = []
         self.current_fittest = None
 
-    def initialize_population():
-        for _ in range(population_size):
+    def initialize_population(self):
+        for _ in range(self.population_size):
             self.population.append(GAIndividual())
     
-    def select_fittest():
+    def select_fittest(self):
         for individual in self.population:
             individual.evaluate_fitness()
 
         fitness_list = sorted(self.population, key=lambda x: x.fitness, reverse=True)
         self.current_fittest = fitness_list[:math.floor(0.2 * self.population_size)]
 
-    def new_offspring_generation():
+    def new_offspring_generation(self):
         offspring = []
         for _ in range(math.ceil(0.8 * self.population_size)):
             parent1, parent2 = np.random.choice(top_individuals, size=2, replace=False)
@@ -35,7 +35,7 @@ class GeneticAlgorithmForPPO:
                 else:
                     child_params[param] = parent2.hyperparameters[param]
 
-                if np.random.uniform(0, 1) < mutation_rate:
+                if np.random.uniform(0, 1) < self.mutation_rate:
                     child_params[param] = self.mutate(child_params[param], 0.3)
             
             child = GAIndividual().set_parameters(child_params)
@@ -43,8 +43,8 @@ class GeneticAlgorithmForPPO:
 
         self.population = self.current_fittest + offspring
 
-    def mutate(param, percent_range):
-        if isinstance(param, flaot):
+    def mutate(self, param, percent_range):
+        if isinstance(param, float):
             lowerbound = param - (param * percent_range)
             upperbound = param + (param * percent_range)
             mutated_param = np.random.uniform(lowerbound, upperbound)
@@ -55,25 +55,25 @@ class GeneticAlgorithmForPPO:
         
         return mutated_param
 
-    def update_latest_two():
+    def update_latest_two(self):
         if len(latest_two) < 2:
             latest_two.append(best_GAIndividual)
         else:
             latest_two.pop(0)
             latest_two.append(best_GAIndividual)
 
-    def check_convergence():
+    def check_convergence(self):
         if len(latest_two) == 2:
             fitness_diff = abs(latest_two[0] - latest_two[1])
             if fitness_diff < self.convergence_threshold:
                 return True
         return False
 
-    def best_GAIndividual():
+    def best_GAIndividual(self):
         best_GAIndividual = max(self.population, key=lambda x: x.fitness)
         return best_GAIndividual
 
-    def run():
+    def run(self):
         self.initialize_population()
         for generation in range(self.generations):
             self.select_fittest()
@@ -95,10 +95,10 @@ class GAIndividual:
                                     'batch_size': np.random.randint(32, 256)}
         self.fitness = None
 
-    def evaluate_fitness():
+    def evaluate_fitness(self):
         ppo_agent = PPO(self.hyperparameters)
         fitness_score = ppo_agent.train()
         self.fitness = fitness_score
 
-    def set_parameters(parameters):
+    def set_parameters(self, parameters):
         self.hyperparameters = parameters
