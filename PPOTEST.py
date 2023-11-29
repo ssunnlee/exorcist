@@ -49,6 +49,7 @@ class PPO:
         self.batch_size = batch_size
 
         self.policy_net = PolicyNetwork(state_space_size, hidden_dim, action_space_size)
+        
         self.value_net = ValueNetwork(state_space_size, hidden_dim)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=LEARNING_RATE)
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=LEARNING_RATE)
@@ -79,6 +80,7 @@ class PPO:
                 reshaped_state = state.reshape(1, -1)
 
                 action_probs = self.policy_net(reshaped_state)
+                print(action_probs)
                 action = torch.multinomial(action_probs, 1).item()
                 next_state, reward, done, _truncated, info = env.step(action)
 
@@ -90,7 +92,7 @@ class PPO:
                 state = torch.tensor(next_state, dtype=torch.float32)
 
                 print(counter)
-                if counter == 1000:
+                if counter == 10000:
                     done = True
                 counter += 1
 
@@ -109,14 +111,14 @@ class PPO:
                 # FIX BATCH STATE SHAPE
                 batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1)
                 new_action_probs = self.policy_net(batch_states_reshaped)
-                new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1))).squeeze(1)
+                new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
                 ratio = (new_log_probs - batch_log_probs_old).exp()
 
                 surrogate_obj1 = ratio * batch_advantages
                 surrogate_obj2 = torch.clamp(ratio, 1-CLIP_EPSILON, 1+CLIP_EPSILON) * batch_advantages
                 policy_loss = -torch.min(surrogate_obj1, surrogate_obj2).mean()
 
-                value_loss = self.criterion(self.value_net(batch_states), batch_returns.unsqueeze(-1))
+                value_loss = self.criterion(self.value_net(batch_states), batch_returns.unsqueeze(-1).unsqueeze(-1))
 
                 self.policy_optimizer.zero_grad()
                 policy_loss.backward()
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     action_space_size = env.action_space.n
 
     # Hyperparameters
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 1e-15
     GAMMA = 0.99
     EPOCHS = 10
     CLIP_EPSILON = 0.2
