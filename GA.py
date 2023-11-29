@@ -56,15 +56,15 @@ class GeneticAlgorithmForPPO:
         return mutated_param
 
     def update_latest_two(self):
-        if len(latest_two) < 2:
-            latest_two.append(best_GAIndividual)
+        if len(self.latest_two) < 2:
+            self.latest_two.append(best_GAIndividual)
         else:
-            latest_two.pop(0)
-            latest_two.append(best_GAIndividual)
+            self.latest_two.pop(0)
+            self.latest_two.append(best_GAIndividual)
 
     def check_convergence(self):
-        if len(latest_two) == 2:
-            fitness_diff = abs(latest_two[0] - latest_two[1])
+        if len(self.latest_two) == 2:
+            fitness_diff = abs(self.latest_two[0] - self.latest_two[1])
             if fitness_diff < self.convergence_threshold:
                 return True
         return False
