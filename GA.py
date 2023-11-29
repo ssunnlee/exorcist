@@ -102,3 +102,4 @@ class GAIndividual:
 
     def set_parameters(self, parameters):
         self.hyperparameters = parameters
+
