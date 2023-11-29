@@ -92,7 +92,7 @@ class PPO:
                 state = torch.tensor(next_state, dtype=torch.float32)
 
                 print(counter)
-                if counter == 10000:
+                if counter == 100000:
                     done = True
                 counter += 1
 
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     action_space_size = env.action_space.n
 
     # Hyperparameters
-    LEARNING_RATE = 1e-15
+    LEARNING_RATE = 1e-3
     GAMMA = 0.99
     EPOCHS = 10
     CLIP_EPSILON = 0.2

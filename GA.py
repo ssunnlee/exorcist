@@ -88,7 +88,7 @@ class GeneticAlgorithmForPPO:
 
 class GAIndividual:
     def __init__(self):
-        self.hyperparameters = {'learning_rate' : np.random.uniform(0.001, 0.1),
+        self.hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
                                         'gamma' : np.random.uniform(0.95, 0.99),
                                         'epochs': np.random.randint(10, 20),
                                     'clip_range': np.random.uniform(0.1, 0.3),
