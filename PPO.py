@@ -1,12 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 import numpy as np
 from tqdm import tqdm
-
 import gym
-
 
 
 class PolicyNetwork(nn.Module):
@@ -20,7 +17,6 @@ class PolicyNetwork(nn.Module):
         )
 
     def forward(self, state):
-        print(f"POLICY_FORWARD: {state.shape}")
         return self.model(state)
 
 
@@ -38,39 +34,42 @@ class ValueNetwork(nn.Module):
 
 
 class PPO:
-    def __init__(self, state_space_size, action_space_size, hidden_dim, learning_rate, gamma, epochs, clip_epsilon, batch_size):
-        self.state_space_size = state_space_size
-        self.action_space_size = action_space_size
-        self.hidden_dim = hidden_dim
-        self.learning_rate = learning_rate
-        self.gamma = gamma
-        self.epochs = epochs
-        self.clip_epsilon = clip_epsilon
-        self.batch_size = batch_size
+    def __init__(self, parameter_dict):
+        env_id = "ALE/DemonAttack-v5"
+        obs_type = "grayscale"
+        self.env = gym.make(env_id, obs_type=obs_type)
+        self.state_space_size = parameter_dict["state_space_size"]
+        self.action_space_size = parameter_dict["action_space_size"]
+        self.hidden_dim = parameter_dict["hidden_dim"]
+        self.learning_rate = parameter_dict["learning_rate"]
+        self.gamma = parameter_dict["gamma"]
+        self.epochs = parameter_dict["epochs"]
+        self.clip_epsilon = parameter_dict["clip_epsilon"]
+        self.batch_size = parameter_dict["batch_size"]
 
-        self.policy_net = PolicyNetwork(state_space_size, hidden_dim, action_space_size)
+        self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size)
         
-        self.value_net = ValueNetwork(state_space_size, hidden_dim)
-        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=LEARNING_RATE)
-        self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=LEARNING_RATE)
+        self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim)
+        self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
+        self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
     def train(self):
-        for _ in tqdm(range(1000)):
-            self.ppo_step()
+        for _ in tqdm(range(2)):
+            reward = self.ppo_step()
+        return reward
 
     def compute_returns(self, rewards):
         returns = []
         R = 0
         for r in reversed(rewards):
-            R = r + GAMMA * R
+            R = r + self.gamma * R
             returns.insert(0, R)
         return torch.tensor(returns)
 
     def ppo_step(self):
-        print("RUNNING PPO STEP")
         with torch.no_grad():
-            state = torch.tensor(env.reset()[0], dtype=torch.float32)
+            state = torch.tensor(self.env.reset()[0], dtype=torch.float32)
             done = False
             states, actions, log_probs_old, rewards = [], [], [], []
 
@@ -80,9 +79,8 @@ class PPO:
                 reshaped_state = state.reshape(1, -1)
 
                 action_probs = self.policy_net(reshaped_state)
-                print(action_probs)
                 action = torch.multinomial(action_probs, 1).item()
-                next_state, reward, done, _truncated, info = env.step(action)
+                next_state, reward, done, _truncated, info = self.env.step(action)
 
                 states.append(reshaped_state)
                 actions.append(action)
@@ -91,8 +89,7 @@ class PPO:
 
                 state = torch.tensor(next_state, dtype=torch.float32)
 
-                print(counter)
-                if counter == 100000:
+                if counter == 500:
                     done = True
                 counter += 1
 
@@ -100,13 +97,13 @@ class PPO:
             values = self.value_net(torch.stack(states))
             advantages = returns - values.squeeze()
 
-        for _ in range(EPOCHS):
-            for i in range(0, len(states), BATCH_SIZE):
-                batch_states = torch.stack(states[i:i+BATCH_SIZE])
-                batch_actions = torch.tensor(actions[i:i+BATCH_SIZE])
-                batch_log_probs_old = torch.stack(log_probs_old[i:i+BATCH_SIZE])
-                batch_advantages = advantages[i:i+BATCH_SIZE]
-                batch_returns = returns[i:i+BATCH_SIZE]
+        for _ in range(self.epochs):
+            for i in range(0, len(states), self.batch_size):
+                batch_states = torch.stack(states[i:i+self.batch_size])
+                batch_actions = torch.tensor(actions[i:i+self.batch_size])
+                batch_log_probs_old = torch.stack(log_probs_old[i:i+self.batch_size])
+                batch_advantages = advantages[i:i+self.batch_size]
+                batch_returns = returns[i:i+self.batch_size]
 
                 # FIX BATCH STATE SHAPE
                 batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1)
@@ -115,7 +112,7 @@ class PPO:
                 ratio = (new_log_probs - batch_log_probs_old).exp()
 
                 surrogate_obj1 = ratio * batch_advantages
-                surrogate_obj2 = torch.clamp(ratio, 1-CLIP_EPSILON, 1+CLIP_EPSILON) * batch_advantages
+                surrogate_obj2 = torch.clamp(ratio, 1-self.clip_epsilon, 1+self.clip_epsilon) * batch_advantages
                 policy_loss = -torch.min(surrogate_obj1, surrogate_obj2).mean()
 
                 value_loss = self.criterion(self.value_net(batch_states), batch_returns.unsqueeze(-1).unsqueeze(-1))
@@ -127,6 +124,9 @@ class PPO:
                 self.value_optimizer.zero_grad()
                 value_loss.backward()
                 self.value_optimizer.step()
+
+        return sum(rewards)
+
 
 if __name__ == "__main__":
     env_id = "ALE/DemonAttack-v5"
@@ -145,5 +145,14 @@ if __name__ == "__main__":
     BATCH_SIZE = 64
     HIDDEN_DIM = 128
 
-    agent = PPO(state_space_size, action_space_size, HIDDEN_DIM, LEARNING_RATE, GAMMA, EPOCHS, CLIP_EPSILON, BATCH_SIZE)
+    hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
+                                'gamma' : np.random.uniform(0.95, 0.99),
+                                        'epochs': np.random.randint(10, 20),
+                                    'clip_epsilon': np.random.uniform(0.1, 0.3),
+                                    'batch_size': np.random.randint(32, 256),
+                                    'state_space_size' : state_space_size,
+                                    'action_space_size' : action_space_size,
+                                    'hidden_dim' : HIDDEN_DIM}
+
+    agent = PPO(hyperparameters)
     agent.train()
