@@ -34,12 +34,12 @@ class ValueNetwork(nn.Module):
 
 
 class PPO:
-    def __init__(self, parameter_dict):
+    def __init__(self, parameter_dict, state_space_size, action_space_size):
         env_id = "ALE/DemonAttack-v5"
         obs_type = "grayscale"
         self.env = gym.make(env_id, obs_type=obs_type)
-        self.state_space_size = parameter_dict["state_space_size"]
-        self.action_space_size = parameter_dict["action_space_size"]
+        self.state_space_size = state_space_size
+        self.action_space_size = action_space_size
         self.hidden_dim = parameter_dict["hidden_dim"]
         self.learning_rate = parameter_dict["learning_rate"]
         self.gamma = parameter_dict["gamma"]
@@ -47,15 +47,18 @@ class PPO:
         self.clip_epsilon = parameter_dict["clip_epsilon"]
         self.batch_size = parameter_dict["batch_size"]
 
-        self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size)
-        
-        self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim)
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size).to(self.device)
+        self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim).to(self.device)
+        #self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size)
+        #self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
     def train(self):
-        for _ in tqdm(range(2)):
+        for _ in tqdm(range(10)):
             reward = self.ppo_step()
         return reward
 
@@ -65,11 +68,11 @@ class PPO:
         for r in reversed(rewards):
             R = r + self.gamma * R
             returns.insert(0, R)
-        return torch.tensor(returns)
+        return torch.tensor(returns).to(self.device)
 
     def ppo_step(self):
         with torch.no_grad():
-            state = torch.tensor(self.env.reset()[0], dtype=torch.float32)
+            state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
             done = False
             states, actions, log_probs_old, rewards = [], [], [], []
 
@@ -79,6 +82,12 @@ class PPO:
                 reshaped_state = state.reshape(1, -1)
 
                 action_probs = self.policy_net(reshaped_state)
+                action_probs = torch.clamp(action_probs, min=1e-8, max=1.0 - 1e-8)
+                #if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
+                    # Handle the case where probabilities are invalid
+                #    done = True
+                #    continue
+
                 action = torch.multinomial(action_probs, 1).item()
                 next_state, reward, done, _truncated, info = self.env.step(action)
 
@@ -87,23 +96,23 @@ class PPO:
                 log_probs_old.append(torch.log(action_probs[0, action]))
                 rewards.append(reward)
 
-                state = torch.tensor(next_state, dtype=torch.float32)
+                state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
 
-                if counter == 500:
+                if counter == 1000:
                     done = True
                 counter += 1
 
-            returns = self.compute_returns(rewards)
-            values = self.value_net(torch.stack(states))
+            returns = self.compute_returns(rewards).to(self.device)
+            values = self.value_net(torch.stack(states)).to(self.device)
             advantages = returns - values.squeeze()
 
         for _ in range(self.epochs):
             for i in range(0, len(states), self.batch_size):
-                batch_states = torch.stack(states[i:i+self.batch_size])
-                batch_actions = torch.tensor(actions[i:i+self.batch_size])
-                batch_log_probs_old = torch.stack(log_probs_old[i:i+self.batch_size])
-                batch_advantages = advantages[i:i+self.batch_size]
-                batch_returns = returns[i:i+self.batch_size]
+                batch_states = torch.stack(states[i:i+self.batch_size]).to(self.device)
+                batch_actions = torch.tensor(actions[i:i+self.batch_size]).to(self.device)
+                batch_log_probs_old = torch.stack(log_probs_old[i:i+self.batch_size]).to(self.device)
+                batch_advantages = advantages[i:i+self.batch_size].to(self.device)
+                batch_returns = returns[i:i+self.batch_size].to(self.device)
 
                 # FIX BATCH STATE SHAPE
                 batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1)

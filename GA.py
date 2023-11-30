@@ -27,17 +27,17 @@ class GeneticAlgorithmForPPO:
             self.population.append(GAIndividual(self.train_environment, self.state_space_size, self.action_space_size))
     
     def select_fittest(self):
-        print(self.population)
         for individual in self.population:
             if individual.fitness == None:
+                print(f"current individuals hyperParams: {individual.hyperparameters}")
                 individual.evaluate_fitness()
 
         fitness_list = sorted(self.population, key=lambda x: x.fitness, reverse=True)
-        self.current_fittest = fitness_list[:math.floor(0.2 * self.population_size)]
+        self.current_fittest = fitness_list[:math.floor(0.4 * self.population_size)]
 
     def new_offspring_generation(self):
         offspring = []
-        for _ in range(math.ceil(0.8 * self.population_size)):
+        for _ in range(math.ceil(0.6 * self.population_size)):
             parent1, parent2 = np.random.choice(self.current_fittest, size=2, replace=False)
             child_params = {}
             for param in parent1.hyperparameters:
@@ -87,6 +87,7 @@ class GeneticAlgorithmForPPO:
 
     def run(self):
         self.initialize_population()
+        print(f"num generations = {self.generations}")
         for generation in range(self.generations):
             print(f"GENERATION: {generation}")
             self.select_fittest()
@@ -96,9 +97,10 @@ class GeneticAlgorithmForPPO:
             self.generational_models.append(generation_best_model)
             self.generational_hyperparameters.append(generation_best_model.hyperparameters)
             self.generational_rewards.append(generation_best_model.fitness)
-            converge_flag = self.check_convergence()
-            if converge_flag == True:
-                break
+            print(f"Reward {generation}: {generation_best_model.fitness}")
+            #converge_flag = self.check_convergence()
+            #if converge_flag == True:
+            #    break
 
         return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters
 
@@ -110,14 +112,14 @@ class GAIndividual:
                                         'epochs': np.random.randint(5, 20),
                                   'clip_epsilon': np.random.uniform(0.05, 0.3),
                                     'batch_size': np.random.randint(32, 256),
-                             'state_space_size' : state_space_size,
-                            'action_space_size' : action_space_size,
                                    'hidden_dim' : np.random.randint(32, 256)}
 
         self.fitness = None
+        self.state_space_size = state_space_size
+        self.action_space_size = action_space_size
 
     def evaluate_fitness(self):
-        ppo_agent = PPO(self.hyperparameters)
+        ppo_agent = PPO(self.hyperparameters, self.state_space_size, self.action_space_size)
         fitness_score = ppo_agent.train()
         self.fitness = fitness_score
 
@@ -127,7 +129,7 @@ class GAIndividual:
 
 
 if __name__ == "__main__":
-    GA = GeneticAlgorithmForPPO(generations=3)
+    GA = GeneticAlgorithmForPPO(population_size=50, generations=20, mutation_rate=0.3)
     best_model, best_hyperparameters = GA.run()
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
