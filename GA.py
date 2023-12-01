@@ -34,10 +34,11 @@ class GeneticAlgorithmForPPO:
     
     def select_fittest(self, generation):
         for individual in self.population:
-            if individual.fitness == None:
+            if individual.fitness == None or (generation > self.extended_eval and individual.extended_eval_fitness == False):
                 print(f"Current individuals hyperParams: {individual.hyperparameters}")
                 if generation > self.extended_eval:
                     individual.evaluate_fitness(self.extended_episodes, self.extended_interactions)
+                    individual.extended_eval_fitness = True
                 else:
                     individual.evaluate_fitness(self.episodes, self.interactions)
 
@@ -125,6 +126,7 @@ class GAIndividual:
                                    'hidden_dim' : np.random.randint(32, 256)}
 
         self.fitness = None
+        self.extended_eval_fitness = False
         self.ppo_agent = None
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
