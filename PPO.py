@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
                                 'gamma' : np.random.uniform(0.95, 0.99),
-                                        'epochs': np.random.randint(10, 20),
+                                    'epochs': np.random.randint(10, 20),
                                     'clip_epsilon': np.random.uniform(0.1, 0.3),
                                     'batch_size': np.random.randint(32, 256),
                                     'state_space_size' : state_space_size,
