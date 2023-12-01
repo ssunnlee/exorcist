@@ -56,7 +56,7 @@ class GeneticAlgorithmForPPO:
                     child_params[param] = parent2.hyperparameters[param]
 
                 if np.random.uniform(0, 1) < self.mutation_rate:
-                    child_params[param] = self.mutate(child_params[param], 0.3)
+                    child_params[param] = self.mutate(child_params[param], 0.2)
             
             child = GAIndividual(self.train_environment, self.state_space_size, self.action_space_size)
             child.set_parameters(child_params)
@@ -110,7 +110,9 @@ class GeneticAlgorithmForPPO:
             #if converge_flag == True:
             #    break
 
-        return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters
+        eval_reward = self.best_GAIndividual().evaluate_agent()
+
+        return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters, eval_reward
 
 
 class GAIndividual:
@@ -123,24 +125,29 @@ class GAIndividual:
                                    'hidden_dim' : np.random.randint(32, 256)}
 
         self.fitness = None
+        self.ppo_agent = None
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
 
     def evaluate_fitness(self, episodes, interactions):
-        ppo_agent = PPO(self.hyperparameters, self.state_space_size, self.action_space_size)
-        fitness_score = ppo_agent.train(episodes, interactions)
+        self.ppo_agent = PPO(self.hyperparameters, self.state_space_size, self.action_space_size)
+        fitness_score = self.ppo_agent.train(episodes, interactions)
         self.fitness = fitness_score
 
+    def evaluate_agent(self):
+        final_reward = self.ppo_agent.ppo_evaluate()
+        return final_reward
 
     def set_parameters(self, parameters):
         self.hyperparameters = parameters
 
 
 if __name__ == "__main__":
-    GA = GeneticAlgorithmForPPO(10, 10000, 15, 20, 150000, population_size=20, generations=20, mutation_rate=0.2)
-    best_model, best_hyperparameters = GA.run()
+    GA = GeneticAlgorithmForPPO(10, 10000, 15, 10, 150000, population_size=10, generations=20, mutation_rate=0.3)
+    best_model, best_hyperparameters, eval_reward = GA.run()
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
     print(f"Rewards: {GA.generational_rewards}")
     pickle_write("GA_generational_hyperparameters.pkl", GA.generational_hyperparameters)
     pickle_write("GA_rewards.pkl", GA.generational_rewards)
+    pickle_write("Evaluation_reward.pkl", eval_reward)

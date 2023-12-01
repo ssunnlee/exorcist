@@ -38,6 +38,7 @@ class PPO:
         env_id = "ALE/DemonAttack-v5"
         obs_type = "grayscale"
         self.env = gym.make(env_id, obs_type=obs_type)
+        self.eval_env = gym.make(env_id, obs_type=obs_type)
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
         self.hidden_dim = parameter_dict["hidden_dim"]
@@ -141,6 +142,18 @@ class PPO:
 
         return sum(rewards)
 
+    def ppo_evaluate(self):
+        state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
+        eval_reward = 0
+        while not done:
+            reshaped_state = state.reshape(1, -1)
+            action_probs = self.policy_net(reshaped_state).to(self.device)
+            action = torch.multinomial(action_probs, 1).item()
+            next_state, reward, done, _truncated, info = self.eval_env.step(action)
+            state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
+            eval_reward += reward
+
+        return eval_reward
 
 if __name__ == "__main__":
     env_id = "ALE/DemonAttack-v5"
