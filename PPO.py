@@ -118,7 +118,10 @@ class PPO:
                 # FIX BATCH STATE SHAPE
                 batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1)
                 new_action_probs = self.policy_net(batch_states_reshaped)
-                new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
+                new_action_probs = torch.clamp(new_action_probs, min=1e-4, max=1.0 - 1e-4)
+                new_action_probs /= new_action_probs.sum()
+                #new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
+                new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)))
                 ratio = (new_log_probs - batch_log_probs_old).exp()
 
                 surrogate_obj1 = ratio * batch_advantages
@@ -155,14 +158,30 @@ if __name__ == "__main__":
     BATCH_SIZE = 64
     HIDDEN_DIM = 128
 
-    hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
-                                'gamma' : np.random.uniform(0.95, 0.99),
-                                    'epochs': np.random.randint(10, 20),
-                                    'clip_epsilon': np.random.uniform(0.1, 0.3),
-                                    'batch_size': np.random.randint(32, 256),
-                                    'state_space_size' : state_space_size,
-                                    'action_space_size' : action_space_size,
-                                    'hidden_dim' : HIDDEN_DIM}
+    #hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
+    #                            'gamma' : np.random.uniform(0.95, 0.99),
+    #                                'epochs': np.random.randint(10, 20),
+    #                                'clip_epsilon': np.random.uniform(0.1, 0.3),
+    #                                'batch_size': np.random.randint(32, 256),
+    #                                'state_space_size' : state_space_size,
+    #                                'action_space_size' : action_space_size,
+    #                                'hidden_dim' : HIDDEN_DIM}
 
-    agent = PPO(hyperparameters)
-    agent.train()
+    hyperparameters = {'learning_rate' : 0.092,
+                                        'gamma' : 1.17,
+                                        'epochs': 19,
+                                  'clip_epsilon': 0.08,
+                                    'batch_size': 219,
+                                   'hidden_dim' : 247}
+
+
+    state_space_size = state_space_size
+    action_space_size = action_space_size
+
+    episodes = 1
+    interactions = 10000
+
+    ppo_agent = PPO(hyperparameters, state_space_size, action_space_size)
+    fitness_score = ppo_agent.train(episodes, interactions)
+    fitness = fitness_score
+    print(fitness)
