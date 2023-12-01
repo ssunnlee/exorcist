@@ -4,7 +4,7 @@ from PPO import PPO
 import gym
 
 class GeneticAlgorithmForPPO:
-    def __init__(self, population_size=10, generations=5, mutation_rate=0.1, convergence_threshold=1e-6):
+    def __init__(self, episodes, interactions, population_size=10, generations=5, mutation_rate=0.1, convergence_threshold=1e-6):
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
@@ -21,6 +21,8 @@ class GeneticAlgorithmForPPO:
         self.train_environment = gym.make(env_id, obs_type=obs_type)
         self.state_space_size = self.train_environment.observation_space.shape[0] * self.train_environment.observation_space.shape[1]
         self.action_space_size = self.train_environment.action_space.n
+        self.episodes = episodes
+        self.interactions = interactions
 
     def initialize_population(self):
         for _ in range(self.population_size):
@@ -30,7 +32,7 @@ class GeneticAlgorithmForPPO:
         for individual in self.population:
             if individual.fitness == None:
                 print(f"current individuals hyperParams: {individual.hyperparameters}")
-                individual.evaluate_fitness()
+                individual.evaluate_fitness(self.episodes, self.interactions)
 
         fitness_list = sorted(self.population, key=lambda x: x.fitness, reverse=True)
         self.current_fittest = fitness_list[:math.floor(0.4 * self.population_size)]
@@ -118,9 +120,9 @@ class GAIndividual:
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
 
-    def evaluate_fitness(self):
+    def evaluate_fitness(self, episodes, interactions):
         ppo_agent = PPO(self.hyperparameters, self.state_space_size, self.action_space_size)
-        fitness_score = ppo_agent.train()
+        fitness_score = ppo_agent.train(episodes, interactions)
         self.fitness = fitness_score
 
 
@@ -129,7 +131,7 @@ class GAIndividual:
 
 
 if __name__ == "__main__":
-    GA = GeneticAlgorithmForPPO(population_size=50, generations=20, mutation_rate=0.3)
+    GA = GeneticAlgorithmForPPO(5, 5000, population_size=20, generations=10, mutation_rate=0.3)
     best_model, best_hyperparameters = GA.run()
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")

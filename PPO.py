@@ -57,9 +57,9 @@ class PPO:
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
 
-    def train(self):
-        for _ in tqdm(range(10)):
-            reward = self.ppo_step()
+    def train(self, episodes, interactions):
+        for _ in tqdm(range(episodes)):
+            reward = self.ppo_step(interactions)
         return reward
 
     def compute_returns(self, rewards):
@@ -70,7 +70,7 @@ class PPO:
             returns.insert(0, R)
         return torch.tensor(returns).to(self.device)
 
-    def ppo_step(self):
+    def ppo_step(self, interactions):
         with torch.no_grad():
             state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
             done = False
@@ -82,7 +82,7 @@ class PPO:
                 reshaped_state = state.reshape(1, -1)
 
                 action_probs = self.policy_net(reshaped_state)
-                action_probs = torch.clamp(action_probs, min=1e-8, max=1.0 - 1e-8)
+                action_probs = torch.clamp(action_probs, min=1e-6, max=1.0 - 1e-6)
                 #if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
                     # Handle the case where probabilities are invalid
                 #    done = True
@@ -98,7 +98,7 @@ class PPO:
 
                 state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
 
-                if counter == 1000:
+                if counter == interactions:
                     done = True
                 counter += 1
 
