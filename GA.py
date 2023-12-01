@@ -2,6 +2,7 @@ import numpy as np
 import math
 from PPO import PPO
 import gym
+from pickle_ops import pickle_write
 
 class GeneticAlgorithmForPPO:
     def __init__(self, episodes, interactions, population_size=10, generations=5, mutation_rate=0.1, convergence_threshold=1e-6):
@@ -136,3 +137,5 @@ if __name__ == "__main__":
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
     print(f"Rewards: {GA.generational_rewards}")
+    pickle_write("GA_generational_hyperparameters.pkl", GA.generational_hyperparameters)
+    pickle_write("GA_rewards.pkl", GA.generational_rewards)
