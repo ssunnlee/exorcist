@@ -51,6 +51,7 @@ class PPO:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size).to(self.device)
         self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim).to(self.device)
+        print("GPU available:", torch.cuda.is_available())
         #self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size)
         #self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
@@ -81,7 +82,7 @@ class PPO:
                 # FIX STATE SHAPE
                 reshaped_state = state.reshape(1, -1)
 
-                action_probs = self.policy_net(reshaped_state)
+                action_probs = self.policy_net(reshaped_state).to(self.device)
                 action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
                 action_probs /= action_probs.sum()
                 #if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
@@ -116,8 +117,8 @@ class PPO:
                 batch_returns = returns[i:i+self.batch_size].to(self.device)
 
                 # FIX BATCH STATE SHAPE
-                batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1)
-                new_action_probs = self.policy_net(batch_states_reshaped)
+                batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1).to(self.device)
+                new_action_probs = self.policy_net(batch_states_reshaped).to(self.device)
                 new_action_probs = torch.clamp(new_action_probs, min=1e-4, max=1.0 - 1e-4)
                 new_action_probs /= new_action_probs.sum()
                 #new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
