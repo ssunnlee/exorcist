@@ -82,7 +82,8 @@ class PPO:
                 reshaped_state = state.reshape(1, -1)
 
                 action_probs = self.policy_net(reshaped_state)
-                action_probs = torch.clamp(action_probs, min=1e-6, max=1.0 - 1e-6)
+                action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
+                action_probs /= action_probs.sum()
                 #if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
                     # Handle the case where probabilities are invalid
                 #    done = True
