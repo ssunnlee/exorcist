@@ -58,7 +58,7 @@ class PPO:
         self.criterion = nn.MSELoss()
 
     def train(self):
-        for _ in tqdm(range(10)):
+        for _ in tqdm(range(20)):
             reward = self.ppo_step()
         return reward
 
