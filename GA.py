@@ -5,7 +5,7 @@ import gym
 from pickle_ops import pickle_write
 
 class GeneticAlgorithmForPPO:
-    def __init__(self, episodes, interactions, population_size=10, generations=5, mutation_rate=0.1, convergence_threshold=1e-6):
+    def __init__(self, episodes, interactions, extended_eval, extended_episodes, extended_interactions, population_size=10, generations=5, mutation_rate=0.1, convergence_threshold=1e-6):
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
@@ -24,23 +24,29 @@ class GeneticAlgorithmForPPO:
         self.action_space_size = self.train_environment.action_space.n
         self.episodes = episodes
         self.interactions = interactions
+        self.extended_eval = extended_eval
+        self.extended_episodes = extended_episodes
+        self.extended_interactions = extended_interactions
 
     def initialize_population(self):
         for _ in range(self.population_size):
             self.population.append(GAIndividual(self.train_environment, self.state_space_size, self.action_space_size))
     
-    def select_fittest(self):
+    def select_fittest(self, generation):
         for individual in self.population:
             if individual.fitness == None:
-                print(f"current individuals hyperParams: {individual.hyperparameters}")
-                individual.evaluate_fitness(self.episodes, self.interactions)
+                print(f"Current individuals hyperParams: {individual.hyperparameters}")
+                if generation > self.extended_eval:
+                    individual.evaluate_fitness(self.extended_episodes, self.extended_interactions)
+                else:
+                    individual.evaluate_fitness(self.episodes, self.interactions)
 
         fitness_list = sorted(self.population, key=lambda x: x.fitness, reverse=True)
-        self.current_fittest = fitness_list[:math.floor(0.4 * self.population_size)]
+        self.current_fittest = fitness_list[:math.floor(0.2 * self.population_size)]
 
     def new_offspring_generation(self):
         offspring = []
-        for _ in range(math.ceil(0.6 * self.population_size)):
+        for _ in range(math.ceil(0.8 * self.population_size)):
             parent1, parent2 = np.random.choice(self.current_fittest, size=2, replace=False)
             child_params = {}
             for param in parent1.hyperparameters:
@@ -90,10 +96,9 @@ class GeneticAlgorithmForPPO:
 
     def run(self):
         self.initialize_population()
-        print(f"num generations = {self.generations}")
         for generation in range(self.generations):
-            print(f"GENERATION: {generation}")
-            self.select_fittest()
+            print(f"GENERATION {generation}")
+            self.select_fittest(generation)
             self.new_offspring_generation()
             self.update_latest_two()
             generation_best_model = self.best_GAIndividual()
@@ -132,7 +137,7 @@ class GAIndividual:
 
 
 if __name__ == "__main__":
-    GA = GeneticAlgorithmForPPO(5, 10000, population_size=20, generations=10, mutation_rate=0.3)
+    GA = GeneticAlgorithmForPPO(10, 10000, 15, 20, 150000, population_size=20, generations=20, mutation_rate=0.2)
     best_model, best_hyperparameters = GA.run()
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
