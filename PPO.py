@@ -86,10 +86,9 @@ class PPO:
                 action_probs = self.policy_net(reshaped_state).to(self.device)
                 action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
                 action_probs /= action_probs.sum()
-                #if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
+                if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
                     # Handle the case where probabilities are invalid
-                #    done = True
-                #    continue
+                    return sum(rewards)
 
                 action = torch.multinomial(action_probs, 1).item()
                 next_state, reward, done, _truncated, info = self.env.step(action)
@@ -192,8 +191,8 @@ if __name__ == "__main__":
     state_space_size = state_space_size
     action_space_size = action_space_size
 
-    episodes = 1
-    interactions = 10000
+    episodes = 60
+    interactions = 50000
 
     ppo_agent = PPO(hyperparameters, state_space_size, action_space_size)
     fitness_score = ppo_agent.train(episodes, interactions)

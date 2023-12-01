@@ -143,7 +143,7 @@ class GAIndividual:
 
 
 if __name__ == "__main__":
-    GA = GeneticAlgorithmForPPO(10, 10000, 15, 10, 150000, population_size=10, generations=20, mutation_rate=0.3)
+    GA = GeneticAlgorithmForPPO(10, 10000, 15, 10, 50000, population_size=10, generations=20, mutation_rate=0.3)
     best_model, best_hyperparameters, eval_reward = GA.run()
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
