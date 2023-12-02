@@ -38,6 +38,7 @@ class PPO:
         env_id = "ALE/DemonAttack-v5"
         obs_type = "grayscale"
         self.env = gym.make(env_id, obs_type=obs_type)
+        self.eval_env = gym.make(env_id, obs_type=obs_type)
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
         self.hidden_dim = parameter_dict["hidden_dim"]
@@ -51,6 +52,7 @@ class PPO:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size).to(self.device)
         self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim).to(self.device)
+        print("GPU available:", torch.cuda.is_available())
         #self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size)
         #self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
@@ -81,13 +83,12 @@ class PPO:
                 # FIX STATE SHAPE
                 reshaped_state = state.reshape(1, -1)
 
-                action_probs = self.policy_net(reshaped_state)
+                action_probs = self.policy_net(reshaped_state).to(self.device)
                 action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
                 action_probs /= action_probs.sum()
-                #if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
+                if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
                     # Handle the case where probabilities are invalid
-                #    done = True
-                #    continue
+                    return sum(rewards)
 
                 action = torch.multinomial(action_probs, 1).item()
                 next_state, reward, done, _truncated, info = self.env.step(action)
@@ -116,9 +117,12 @@ class PPO:
                 batch_returns = returns[i:i+self.batch_size].to(self.device)
 
                 # FIX BATCH STATE SHAPE
-                batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1)
-                new_action_probs = self.policy_net(batch_states_reshaped)
-                new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
+                batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1).to(self.device)
+                new_action_probs = self.policy_net(batch_states_reshaped).to(self.device)
+                new_action_probs = torch.clamp(new_action_probs, min=1e-4, max=1.0 - 1e-4)
+                new_action_probs /= new_action_probs.sum()
+                #new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
+                new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)))
                 ratio = (new_log_probs - batch_log_probs_old).exp()
 
                 surrogate_obj1 = ratio * batch_advantages
@@ -137,6 +141,18 @@ class PPO:
 
         return sum(rewards)
 
+    def ppo_evaluate(self):
+        state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
+        eval_reward = 0
+        while not done:
+            reshaped_state = state.reshape(1, -1)
+            action_probs = self.policy_net(reshaped_state).to(self.device)
+            action = torch.multinomial(action_probs, 1).item()
+            next_state, reward, done, _truncated, info = self.eval_env.step(action)
+            state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
+            eval_reward += reward
+
+        return eval_reward
 
 if __name__ == "__main__":
     env_id = "ALE/DemonAttack-v5"
@@ -155,14 +171,30 @@ if __name__ == "__main__":
     BATCH_SIZE = 64
     HIDDEN_DIM = 128
 
-    hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
-                                'gamma' : np.random.uniform(0.95, 0.99),
-                                    'epochs': np.random.randint(10, 20),
-                                    'clip_epsilon': np.random.uniform(0.1, 0.3),
-                                    'batch_size': np.random.randint(32, 256),
-                                    'state_space_size' : state_space_size,
-                                    'action_space_size' : action_space_size,
-                                    'hidden_dim' : HIDDEN_DIM}
+    #hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
+    #                            'gamma' : np.random.uniform(0.95, 0.99),
+    #                                'epochs': np.random.randint(10, 20),
+    #                                'clip_epsilon': np.random.uniform(0.1, 0.3),
+    #                                'batch_size': np.random.randint(32, 256),
+    #                                'state_space_size' : state_space_size,
+    #                                'action_space_size' : action_space_size,
+    #                                'hidden_dim' : HIDDEN_DIM}
 
-    agent = PPO(hyperparameters)
-    agent.train()
+    hyperparameters = {'learning_rate' : 0.092,
+                                        'gamma' : 1.17,
+                                        'epochs': 19,
+                                  'clip_epsilon': 0.08,
+                                    'batch_size': 219,
+                                   'hidden_dim' : 247}
+
+
+    state_space_size = state_space_size
+    action_space_size = action_space_size
+
+    episodes = 60
+    interactions = 50000
+
+    ppo_agent = PPO(hyperparameters, state_space_size, action_space_size)
+    fitness_score = ppo_agent.train(episodes, interactions)
+    fitness = fitness_score
+    print(fitness)
