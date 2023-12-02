@@ -143,6 +143,7 @@ class PPO:
 
     def ppo_evaluate(self):
         state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
+        done = False
         eval_reward = 0
         while not done:
             reshaped_state = state.reshape(1, -1)
