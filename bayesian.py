@@ -25,14 +25,14 @@ def objective(trial, episodes, interactions, intermiediate):
         intermiediate.append(trial_info)
     return reward
 
-def bayesian_tuning(episodes, interactions, intermediate=None):
+def bayesian_tuning(episodes, interactions, n=3, intermediate=None):
     study = optuna.create_study(direction='maximize')
-    study.optimize(lambda trial: objective(trial, episodes, interactions, intermediate), n_trials=3)
+    study.optimize(lambda trial: objective(trial, episodes, interactions, intermediate), n_trials=n)
     return study.best_params
     
 if __name__ == "__main__":
     intermediate = []
-    best_params = bayesian_tuning(20, 1000, intermediate)
+    best_params = bayesian_tuning(20, 20000, 20, intermediate)
     print(best_params)
     pickle_write("bayesian_final.pkl", best_params)
     pickle_write("bayesian_intermediate.pkl", intermediate)
