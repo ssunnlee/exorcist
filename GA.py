@@ -110,8 +110,15 @@ class GeneticAlgorithmForPPO:
             #converge_flag = self.check_convergence()
             #if converge_flag == True:
             #    break
+        
+        print(f"GA_generational_hyperparameters: {self.best_GAIndividual().hyperparameters}")
+        print(f"GA_rewards: {self.generational_rewards}")
+        pickle_write("GA_generational_hyperparameters.pkl", self.best_GAIndividual().hyperparameters)
+        pickle_write("GA_rewards.pkl", self.generational_rewards)
 
         eval_reward = self.best_GAIndividual().evaluate_agent()
+        pickle_write("Evaluation_reward.pkl", eval_reward)
+        print(f"Evaluation_reward: {eval_reward}")
 
         return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters, eval_reward
 
@@ -150,6 +157,3 @@ if __name__ == "__main__":
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
     print(f"Rewards: {GA.generational_rewards}")
-    pickle_write("GA_generational_hyperparameters.pkl", GA.generational_hyperparameters)
-    pickle_write("GA_rewards.pkl", GA.generational_rewards)
-    pickle_write("Evaluation_reward.pkl", eval_reward)
