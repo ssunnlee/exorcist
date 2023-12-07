@@ -57,7 +57,7 @@ class GeneticAlgorithmForPPO:
                     child_params[param] = parent2.hyperparameters[param]
 
                 if np.random.uniform(0, 1) < self.mutation_rate:
-                    child_params[param] = self.mutate(child_params[param], 0.2)
+                    child_params[param] = self.mutate(child_params[param], 0.3)
             
             child = GAIndividual(self.train_environment, self.state_space_size, self.action_space_size)
             child.set_parameters(child_params)
@@ -116,9 +116,15 @@ class GeneticAlgorithmForPPO:
         pickle_write("GA_generational_hyperparameters.pkl", self.best_GAIndividual().hyperparameters)
         pickle_write("GA_rewards.pkl", self.generational_rewards)
 
-        eval_reward = self.best_GAIndividual().evaluate_agent()
-        pickle_write("Evaluation_reward.pkl", eval_reward)
-        print(f"Evaluation_reward: {eval_reward}")
+        print(f"Graphing Info: {self.generational_hyperparameters, self.generational_models}")
+        print(f"Rewards: {self.generational_rewards}")
+
+        eval_rewards = []
+        for i in range(100):
+            eval_reward = self.best_GAIndividual().evaluate_agent()
+            eval_rewards.append(eval_reward)
+        pickle_write("Evaluation_reward.pkl", eval_rewards)
+        print(f"Evaluation_reward: {eval_rewards}")
 
         return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters, eval_reward
 
