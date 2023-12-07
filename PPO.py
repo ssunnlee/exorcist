@@ -7,7 +7,7 @@ import gym
 
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
+    def __init__(self, input_dim, hidden_dim, output_dim, temperature=1.0):
         super(PolicyNetwork, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -16,8 +16,11 @@ class PolicyNetwork(nn.Module):
             nn.Softmax(dim=1)
         )
 
+        self.temperature = temperature
+
     def forward(self, state):
-        return self.model(state)
+        logits = self.model(state)
+        return nn.functional.softmax(logits / self.temperature, dim=1)
 
 
 class ValueNetwork(nn.Module):
@@ -62,6 +65,7 @@ class PPO:
     def train(self, episodes, interactions):
         for _ in tqdm(range(episodes)):
             reward = self.ppo_step(interactions)
+            print(f"\n{reward}")
         return reward
 
     def compute_returns(self, rewards):
@@ -73,40 +77,49 @@ class PPO:
         return torch.tensor(returns).to(self.device)
 
     def ppo_step(self, interactions):
-        with torch.no_grad():
-            state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
-            done = False
-            states, actions, log_probs_old, rewards = [], [], [], []
+        exploration_noise = 0.3
+        entropy_coefficient = 0.3
+        state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
+        done = False
+        states, actions, log_probs_old, rewards = [], [], [], []
 
-            counter = 0
-            while not done:
-                # FIX STATE SHAPE
-                reshaped_state = state.reshape(1, -1)
+        counter = 0
 
-                action_probs = self.policy_net(reshaped_state).to(self.device)
-                action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
-                action_probs /= action_probs.sum()
-                if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
-                    # Handle the case where probabilities are invalid
-                    return sum(rewards)
+        while not done:
+            # FIX STATE SHAPE
+            reshaped_state = state.reshape(1, -1)
 
-                action = torch.multinomial(action_probs, 1).item()
-                next_state, reward, done, _truncated, info = self.env.step(action)
-
-                states.append(reshaped_state)
-                actions.append(action)
+            action_probs = self.policy_net(reshaped_state).to(self.device)
+            #print(f"PROB BEFORE: {action_probs}")
+            action_probs = (action_probs + torch.randn_like(action_probs) * exploration_noise)
+            action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
+            action_probs /= action_probs.sum()
+            if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
+                print("bad")
+                # Handle the case where probabilities are invalid
+                return sum(rewards)
+            
+            #print(action_probs)
+            action = torch.multinomial(action_probs, 1).item()
+            #print(action)
+            next_state, reward, done, _truncated, info = self.env.step(action)
+        
+            states.append(reshaped_state)
+            actions.append(action)
+            with torch.no_grad():
                 log_probs_old.append(torch.log(action_probs[0, action]))
-                rewards.append(reward)
+            rewards.append(reward)
 
-                state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
+            state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
 
-                if counter == interactions:
-                    done = True
-                counter += 1
+            if counter == interactions:
+                done = True
+            counter += 1
 
-            returns = self.compute_returns(rewards).to(self.device)
-            values = self.value_net(torch.stack(states)).to(self.device)
-            advantages = returns - values.squeeze()
+        returns = self.compute_returns(rewards).to(self.device)
+        values = self.value_net(torch.stack(states)).to(self.device)
+        advantages = returns - values.squeeze().detach()
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         for _ in range(self.epochs):
             for i in range(0, len(states), self.batch_size):
@@ -117,7 +130,7 @@ class PPO:
                 batch_returns = returns[i:i+self.batch_size].to(self.device)
 
                 # FIX BATCH STATE SHAPE
-                batch_states_reshaped = torch.flatten(batch_states.clone(), start_dim=1).to(self.device)
+                batch_states_reshaped = torch.flatten(batch_states, start_dim=1).to(self.device)
                 new_action_probs = self.policy_net(batch_states_reshaped).to(self.device)
                 new_action_probs = torch.clamp(new_action_probs, min=1e-4, max=1.0 - 1e-4)
                 new_action_probs /= new_action_probs.sum()
@@ -127,7 +140,8 @@ class PPO:
 
                 surrogate_obj1 = ratio * batch_advantages
                 surrogate_obj2 = torch.clamp(ratio, 1-self.clip_epsilon, 1+self.clip_epsilon) * batch_advantages
-                policy_loss = -torch.min(surrogate_obj1, surrogate_obj2).mean()
+                entropy = -(new_action_probs * torch.log(new_action_probs + 1e-8)).sum(dim=1).mean()
+                policy_loss = -torch.min(surrogate_obj1, surrogate_obj2).mean() - entropy_coefficient * entropy
 
                 value_loss = self.criterion(self.value_net(batch_states), batch_returns.unsqueeze(-1).unsqueeze(-1))
 
@@ -148,10 +162,14 @@ class PPO:
         while not done:
             reshaped_state = state.reshape(1, -1)
             action_probs = self.policy_net(reshaped_state).to(self.device)
+            #print(action_probs)
             action = torch.multinomial(action_probs, 1).item()
             next_state, reward, done, _truncated, info = self.eval_env.step(action)
             state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
             eval_reward += reward
+            #print(action)
+            #print(eval_reward)
+            #print(done)
 
         return eval_reward
 
@@ -181,21 +199,24 @@ if __name__ == "__main__":
     #                                'action_space_size' : action_space_size,
     #                                'hidden_dim' : HIDDEN_DIM}
 
-    hyperparameters = {'learning_rate' : 0.092,
-                                        'gamma' : 1.17,
-                                        'epochs': 19,
-                                  'clip_epsilon': 0.08,
-                                    'batch_size': 219,
-                                   'hidden_dim' : 247}
+    best_hyperparameters = {'learning_rate' : 0.0008227920263653196,
+                                        'gamma' : 0.7948334262025736,
+                                        'epochs': 5,
+                                  'clip_epsilon': 0.1775549857878334,
+                                    'batch_size': 173,
+                                   'hidden_dim' : 74}
 
 
     state_space_size = state_space_size
     action_space_size = action_space_size
 
-    episodes = 60
-    interactions = 50000
+    episodes = 10
+    interactions = 10000
 
-    ppo_agent = PPO(hyperparameters, state_space_size, action_space_size)
+    ppo_agent = PPO(best_hyperparameters, state_space_size, action_space_size)
     fitness_score = ppo_agent.train(episodes, interactions)
     fitness = fitness_score
-    print(fitness)
+    print(f"fitness = {fitness}")
+    final_score = ppo_agent.ppo_evaluate()
+    final = final_score
+    print(f"final = {final}")
