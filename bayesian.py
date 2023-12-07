@@ -6,7 +6,7 @@ STATE_SPACE_SIZE = 210 * 160
 ACTION_SPACE_SIZE = 6
 
 def objective(trial, episodes, interactions, intermiediate):
-    learning_rate = trial.suggest_loguniform('learning rate', 1e-15, 0.1)
+    learning_rate = trial.suggest_loguniform('learning_rate', 1e-15, 0.1)
     gamma = trial.suggest_loguniform('gamma', 0.95, 0.99)
     epochs = trial.suggest_int('epochs', 5, 20)
     clip_epsilon = trial.suggest_loguniform('clip_epsilon', 0.05, 0.3)
@@ -32,7 +32,7 @@ def bayesian_tuning(episodes, interactions, n=3, intermediate=None):
     
 if __name__ == "__main__":
     intermediate = []
-    best_params = bayesian_tuning(20, 20000, 20, intermediate)
+    best_params = bayesian_tuning(20, 10000, 20, intermediate)
     print(best_params)
-    pickle_write("bayesian_final.pkl", best_params)
-    pickle_write("bayesian_intermediate.pkl", intermediate)
+    pickle_write("bayesian_final_2.pkl", best_params)
+    pickle_write("bayesian_intermediate_2.pkl", intermediate)
