@@ -19,7 +19,7 @@ class PolicyNetwork(nn.Module):
         self.temperature = temperature
 
     def forward(self, state):
-        logits = self.model(state)
+        return self.model(state)
         return nn.functional.softmax(logits / self.temperature, dim=1)
 
 
@@ -40,7 +40,7 @@ class PPO:
     def __init__(self, parameter_dict, state_space_size, action_space_size):
         env_id = "ALE/DemonAttack-v5"
         obs_type = "grayscale"
-        self.env = gym.make(env_id, obs_type=obs_type)
+        self.env = gym.make(env_id, obs_type=obs_type, render_mode='human')
         self.eval_env = gym.make(env_id, obs_type=obs_type)
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
@@ -77,6 +77,8 @@ class PPO:
         return torch.tensor(returns).to(self.device)
 
     def ppo_step(self, interactions):
+        self.env = gym.wrappers.RecordVideo(self.env, 'video')
+
         exploration_noise = 0.3
         entropy_coefficient = 0.3
         state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
@@ -90,8 +92,9 @@ class PPO:
             reshaped_state = state.reshape(1, -1)
 
             action_probs = self.policy_net(reshaped_state).to(self.device)
-            #print(f"PROB BEFORE: {action_probs}")
+            print(f"PROB BEFORE: {action_probs}")
             action_probs = (action_probs + torch.randn_like(action_probs) * exploration_noise)
+            #print(action_probs)
             action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
             action_probs /= action_probs.sum()
             if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
@@ -138,10 +141,10 @@ class PPO:
                 new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)))
                 ratio = (new_log_probs - batch_log_probs_old).exp()
 
-                surrogate_obj1 = ratio * batch_advantages
-                surrogate_obj2 = torch.clamp(ratio, 1-self.clip_epsilon, 1+self.clip_epsilon) * batch_advantages
+                surrogate_obj1 = ratio * -batch_advantages
+                surrogate_obj2 = torch.clamp(ratio, 1-self.clip_epsilon, 1+self.clip_epsilon) * -batch_advantages
                 entropy = -(new_action_probs * torch.log(new_action_probs + 1e-8)).sum(dim=1).mean()
-                policy_loss = -torch.min(surrogate_obj1, surrogate_obj2).mean() - entropy_coefficient * entropy
+                policy_loss = -torch.max(surrogate_obj1, surrogate_obj2).mean()
 
                 value_loss = self.criterion(self.value_net(batch_states), batch_returns.unsqueeze(-1).unsqueeze(-1))
 
@@ -152,7 +155,7 @@ class PPO:
                 self.value_optimizer.zero_grad()
                 value_loss.backward()
                 self.value_optimizer.step()
-
+        self.env.close()
         return sum(rewards)
 
     def ppo_evaluate(self):
