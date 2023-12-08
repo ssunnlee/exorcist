@@ -101,7 +101,7 @@ class PPO:
             if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
                 print("bad")
                 # Handle the case where probabilities are invalid
-                return sum(rewards)
+                return -1000000
             
             #print(action_probs)
             action = torch.multinomial(action_probs, 1).item()
