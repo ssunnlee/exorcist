@@ -38,7 +38,7 @@ class PPO:
     def __init__(self, parameter_dict, state_space_size, action_space_size):
         env_id = "ALE/DemonAttack-v5"
         obs_type = "grayscale"
-        self.env = gym.make(env_id, obs_type=obs_type, render_mode='human')
+        self.env = gym.make(env_id, obs_type=obs_type)
         self.eval_env = gym.make(env_id, obs_type=obs_type)
         self.state_space_size = state_space_size
         self.action_space_size = action_space_size
@@ -77,8 +77,6 @@ class PPO:
         return torch.tensor(returns).to(self.device)
 
     def ppo_step(self, interactions):
-        self.env = gym.wrappers.RecordVideo(self.env, 'video')
-
         exploration_noise = self.exploration_noise
         entropy_coefficient = self.entropy_coefficient
         state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
@@ -91,11 +89,11 @@ class PPO:
 
         while not done:
             # FIX STATE SHAPE
-            print(counter)
+            #print(counter)
             reshaped_state = state.reshape(1, -1)
 
             action_probs = self.policy_net(reshaped_state).to(self.device)
-            print(f"PROB BEFORE: {action_probs}")
+            #print(f"PROB BEFORE: {action_probs}")
             action_probs = (action_probs + torch.randn_like(action_probs) * exploration_noise)
             #print(action_probs)
             action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
@@ -171,11 +169,11 @@ class PPO:
                 value_loss.backward()
                 self.value_optimizer.step()
 
-        self.env.close()
+        #self.env.close()
         return sum(rewards)
 
     def ppo_evaluate(self):
-        self.eval_env = gym.wrappers.RecordVideo(self.env, 'video')
+        #self.eval_env = gym.wrappers.RecordVideo(self.env, 'video')
         state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
         done = False
         eval_reward = 0
@@ -191,7 +189,7 @@ class PPO:
             #print(eval_reward)
             #print(done)
 
-        self.eval_env.close()
+        #self.eval_env.close()
         return eval_reward
 
 if __name__ == "__main__":

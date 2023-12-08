@@ -12,12 +12,16 @@ def objective(trial, episodes, interactions, intermiediate):
     clip_epsilon = trial.suggest_loguniform('clip_epsilon', 0.05, 0.3)
     batch_size = trial.suggest_int('batch_size', 32, 256)
     hidden_dim = trial.suggest_int('hidden_dim', 32, 256)
+    exploration_noise = trial.suggest_loguniform('exploration_noise', 0.0, 0.5)
+    entropy_coefficient = trial.suggest_loguniform('entropy_coefficient', 0.0, 0.5)
     hyperparameters = {'learning_rate' : learning_rate,
                         'gamma' : gamma,
                         'epochs': epochs,
                         'clip_epsilon': clip_epsilon,
                         'batch_size': batch_size,
-                        'hidden_dim' : hidden_dim}
+                        'hidden_dim' : hidden_dim,
+                        'exploration_noise' : exploration_noise,
+                        'entropy_coefficient' : entropy_coefficient}
     agent = PPO(hyperparameters, STATE_SPACE_SIZE, ACTION_SPACE_SIZE)
     reward = agent.train(episodes, interactions)
     if intermiediate is not None:
