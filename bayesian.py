@@ -32,7 +32,7 @@ def bayesian_tuning(episodes, interactions, n=3, intermediate=None):
     
 if __name__ == "__main__":
     intermediate = []
-    best_params = bayesian_tuning(20, 10000, 20, intermediate)
+    best_params = bayesian_tuning(20, 20000, 20, intermediate)
     print(best_params)
     pickle_write("bayesian_final_2.pkl", best_params)
     pickle_write("bayesian_intermediate_2.pkl", intermediate)
