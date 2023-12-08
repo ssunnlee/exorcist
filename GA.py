@@ -136,7 +136,9 @@ class GAIndividual:
                                         'epochs': np.random.randint(5, 20),
                                   'clip_epsilon': np.random.uniform(0.05, 0.3),
                                     'batch_size': np.random.randint(32, 256),
-                                   'hidden_dim' : np.random.randint(32, 256)}
+                                   'hidden_dim' : np.random.randint(32, 256),
+                             'exploration_noise': np.random.uniform(0.0, 0.5),
+                           'entropy_coefficient': np.random.uniform(0.0, 0.5)}
 
         self.fitness = None
         self.extended_eval_fitness = False
@@ -158,7 +160,7 @@ class GAIndividual:
 
 
 if __name__ == "__main__":
-    GA = GeneticAlgorithmForPPO(10, 10000, 15, 10, 50000, population_size=10, generations=20, mutation_rate=0.3)
+    GA = GeneticAlgorithmForPPO(10, 1000, 15, 10, 10000, population_size=20, generations=30, mutation_rate=0.3)
     best_model, best_hyperparameters, eval_reward = GA.run()
     print(f"BEST HYPERPARAMETERS: {best_model, best_hyperparameters}")
     print(f"Graphing Info: {GA.generational_hyperparameters, GA.generational_models}")
