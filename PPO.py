@@ -7,7 +7,7 @@ import gym
 
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, temperature=1.0):
+    def __init__(self, input_dim, hidden_dim, output_dim):
         super(PolicyNetwork, self).__init__()
         self.model = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -16,11 +16,9 @@ class PolicyNetwork(nn.Module):
             nn.Softmax(dim=1)
         )
 
-        self.temperature = temperature
 
     def forward(self, state):
         return self.model(state)
-        return nn.functional.softmax(logits / self.temperature, dim=1)
 
 
 class ValueNetwork(nn.Module):
@@ -50,6 +48,8 @@ class PPO:
         self.epochs = parameter_dict["epochs"]
         self.clip_epsilon = parameter_dict["clip_epsilon"]
         self.batch_size = parameter_dict["batch_size"]
+        self.exploration_noise = parameter_dict["exploration_noise"]
+        self.entropy_coefficient = parameter_dict["entropy_coefficient"]
 
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,16 +79,19 @@ class PPO:
     def ppo_step(self, interactions):
         self.env = gym.wrappers.RecordVideo(self.env, 'video')
 
-        exploration_noise = 0.3
-        entropy_coefficient = 0.3
+        exploration_noise = self.exploration_noise
+        entropy_coefficient = self.entropy_coefficient
         state = torch.tensor(self.env.reset()[0], dtype=torch.float32).to(self.device)
         done = False
         states, actions, log_probs_old, rewards = [], [], [], []
 
         counter = 0
 
+        current_lives = 4
+
         while not done:
             # FIX STATE SHAPE
+            print(counter)
             reshaped_state = state.reshape(1, -1)
 
             action_probs = self.policy_net(reshaped_state).to(self.device)
@@ -106,6 +109,18 @@ class PPO:
             action = torch.multinomial(action_probs, 1).item()
             #print(action)
             next_state, reward, done, _truncated, info = self.env.step(action)
+
+            if reward == 0:
+                reward -= 5
+            else:
+                reward += 10 * reward
+
+            if current_lives > info["lives"]:
+                current_lives = info["lives"]
+                reward -= 1000
+            elif current_lives < info["lives"]:
+                current_lives = info["lives"]
+                reward += 1000
         
             states.append(reshaped_state)
             actions.append(action)
@@ -155,10 +170,12 @@ class PPO:
                 self.value_optimizer.zero_grad()
                 value_loss.backward()
                 self.value_optimizer.step()
+
         self.env.close()
         return sum(rewards)
 
     def ppo_evaluate(self):
+        self.eval_env = gym.wrappers.RecordVideo(self.env, 'video')
         state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
         done = False
         eval_reward = 0
@@ -174,6 +191,7 @@ class PPO:
             #print(eval_reward)
             #print(done)
 
+        self.eval_env.close()
         return eval_reward
 
 if __name__ == "__main__":
@@ -202,19 +220,20 @@ if __name__ == "__main__":
     #                                'action_space_size' : action_space_size,
     #                                'hidden_dim' : HIDDEN_DIM}
 
-    best_hyperparameters = {'learning_rate' : 0.0008227920263653196,
-                                        'gamma' : 0.7948334262025736,
-                                        'epochs': 5,
-                                  'clip_epsilon': 0.1775549857878334,
-                                    'batch_size': 173,
-                                   'hidden_dim' : 74}
-
+    best_hyperparameters = {'learning_rate': 2.165092657275455e-14, 
+    'gamma': 0.9560596486846205, 
+    'epochs': 20, 
+    'clip_epsilon': 0.0975033058483435, 
+    'batch_size': 159, 
+    'hidden_dim': 79,
+    'exploration_noise': 0.3,
+    'entropy_coefficient': 0.3}
 
     state_space_size = state_space_size
     action_space_size = action_space_size
 
     episodes = 10
-    interactions = 10000
+    interactions = 1000
 
     ppo_agent = PPO(best_hyperparameters, state_space_size, action_space_size)
     fitness_score = ppo_agent.train(episodes, interactions)
