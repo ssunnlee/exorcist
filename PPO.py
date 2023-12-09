@@ -4,6 +4,7 @@ import torch.optim as optim
 import numpy as np
 from tqdm import tqdm
 import gym
+from pickle_ops import pickle_write
 
 
 class PolicyNetwork(nn.Module):
@@ -191,52 +192,3 @@ class PPO:
 
         #self.eval_env.close()
         return eval_reward
-
-if __name__ == "__main__":
-    env_id = "ALE/DemonAttack-v5"
-    obs_type = "grayscale"
-    env = gym.make(env_id, obs_type=obs_type)
-    eval_env = gym.make(env_id, obs_type=obs_type)
-
-    state_space_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-    action_space_size = env.action_space.n
-
-    # Hyperparameters
-    LEARNING_RATE = 1e-3
-    GAMMA = 0.99
-    EPOCHS = 10
-    CLIP_EPSILON = 0.2
-    BATCH_SIZE = 64
-    HIDDEN_DIM = 128
-
-    #hyperparameters = {'learning_rate' : np.random.uniform(1e-15, 0.1),
-    #                            'gamma' : np.random.uniform(0.95, 0.99),
-    #                                'epochs': np.random.randint(10, 20),
-    #                                'clip_epsilon': np.random.uniform(0.1, 0.3),
-    #                                'batch_size': np.random.randint(32, 256),
-    #                                'state_space_size' : state_space_size,
-    #                                'action_space_size' : action_space_size,
-    #                                'hidden_dim' : HIDDEN_DIM}
-
-    best_hyperparameters = {'learning_rate': 2.165092657275455e-14, 
-    'gamma': 0.9560596486846205, 
-    'epochs': 20, 
-    'clip_epsilon': 0.0975033058483435, 
-    'batch_size': 159, 
-    'hidden_dim': 79,
-    'exploration_noise': 0.3,
-    'entropy_coefficient': 0.3}
-
-    state_space_size = state_space_size
-    action_space_size = action_space_size
-
-    episodes = 10
-    interactions = 1000
-
-    ppo_agent = PPO(best_hyperparameters, state_space_size, action_space_size)
-    fitness_score = ppo_agent.train(episodes, interactions)
-    fitness = fitness_score
-    print(f"fitness = {fitness}")
-    final_score = ppo_agent.ppo_evaluate()
-    final = final_score
-    print(f"final = {final}")
