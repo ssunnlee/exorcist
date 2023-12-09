@@ -178,6 +178,7 @@ class PPO:
         state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
         done = False
         eval_reward = 0
+        counter = 0
         while not done:
             reshaped_state = state.reshape(1, -1)
             action_probs = self.policy_net(reshaped_state).to(self.device)
@@ -186,8 +187,12 @@ class PPO:
             next_state, reward, done, _truncated, info = self.eval_env.step(action)
             state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
             eval_reward += reward
+            if counter == 30000:
+                done = True
+            if counter % 10000 == 0:
             #print(action)
-            #print(eval_reward)
+                print(eval_reward)
+            counter += 1
             #print(done)
 
         #self.eval_env.close()
