@@ -57,8 +57,6 @@ class PPO:
         self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size).to(self.device)
         self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim).to(self.device)
         print("GPU available:", torch.cuda.is_available())
-        #self.policy_net = PolicyNetwork(self.state_space_size, self.hidden_dim, self.action_space_size)
-        #self.value_net = ValueNetwork(self.state_space_size, self.hidden_dim)
         self.policy_optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
         self.value_optimizer = optim.Adam(self.value_net.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
@@ -66,7 +64,6 @@ class PPO:
     def train(self, episodes, interactions):
         for _ in tqdm(range(episodes)):
             reward = self.ppo_step(interactions)
-            print(f"\n{reward}")
         return reward
 
     def compute_returns(self, rewards):
@@ -90,23 +87,16 @@ class PPO:
 
         while not done:
             # FIX STATE SHAPE
-            #print(counter)
             reshaped_state = state.reshape(1, -1)
-
             action_probs = self.policy_net(reshaped_state).to(self.device)
-            #print(f"PROB BEFORE: {action_probs}")
             action_probs = (action_probs + torch.randn_like(action_probs) * exploration_noise)
-            #print(action_probs)
             action_probs = torch.clamp(action_probs, min=1e-4, max=1.0 - 1e-4)
             action_probs /= action_probs.sum()
             if torch.isnan(action_probs).any() or torch.isinf(action_probs).any() or (action_probs < 0).any():
-                print("bad")
                 # Handle the case where probabilities are invalid
                 return -1000000
             
-            #print(action_probs)
             action = torch.multinomial(action_probs, 1).item()
-            #print(action)
             next_state, reward, done, _truncated, info = self.env.step(action)
 
             if reward == 0:
@@ -151,7 +141,6 @@ class PPO:
                 new_action_probs = self.policy_net(batch_states_reshaped).to(self.device)
                 new_action_probs = torch.clamp(new_action_probs, min=1e-4, max=1.0 - 1e-4)
                 new_action_probs /= new_action_probs.sum()
-                #new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)).squeeze(1) + 1e-8)
                 new_log_probs = torch.log(new_action_probs.gather(1, batch_actions.unsqueeze(-1)))
                 ratio = (new_log_probs - batch_log_probs_old).exp()
 
@@ -170,30 +159,18 @@ class PPO:
                 value_loss.backward()
                 self.value_optimizer.step()
 
-        #self.env.close()
         return sum(rewards)
 
     def ppo_evaluate(self):
-        #self.eval_env = gym.wrappers.RecordVideo(self.env, 'video')
         state = torch.tensor(self.eval_env.reset()[0], dtype=torch.float32).to(self.device)
         done = False
         eval_reward = 0
-        counter = 0
         while not done:
             reshaped_state = state.reshape(1, -1)
             action_probs = self.policy_net(reshaped_state).to(self.device)
-            #print(action_probs)
             action = torch.multinomial(action_probs, 1).item()
             next_state, reward, done, _truncated, info = self.eval_env.step(action)
             state = torch.tensor(next_state, dtype=torch.float32).to(self.device)
             eval_reward += reward
-            if counter == 30000:
-                done = True
-            if counter % 10000 == 0:
-            #print(action)
-                print(eval_reward)
-            counter += 1
-            #print(done)
 
-        #self.eval_env.close()
         return eval_reward
