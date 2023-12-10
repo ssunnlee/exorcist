@@ -35,7 +35,6 @@ class GeneticAlgorithmForPPO:
     def select_fittest(self, generation):
         for individual in self.population:
             if individual.fitness == None or (generation > self.extended_eval and individual.extended_eval_fitness == False):
-                print(f"Current individuals hyperParams: {individual.hyperparameters}")
                 if generation > self.extended_eval:
                     individual.evaluate_fitness(self.extended_episodes, self.extended_interactions)
                     individual.extended_eval_fitness = True
@@ -98,7 +97,6 @@ class GeneticAlgorithmForPPO:
     def run(self):
         self.initialize_population()
         for generation in range(self.generations):
-            print(f"GENERATION {generation}")
             self.select_fittest(generation)
             self.new_offspring_generation()
             self.update_latest_two()
@@ -106,25 +104,15 @@ class GeneticAlgorithmForPPO:
             self.generational_models.append(generation_best_model)
             self.generational_hyperparameters.append(generation_best_model.hyperparameters)
             self.generational_rewards.append(generation_best_model.fitness)
-            print(f"Reward {generation}: {generation_best_model.fitness}")
-            #converge_flag = self.check_convergence()
-            #if converge_flag == True:
-            #    break
-        
-        print(f"GA_generational_hyperparameters: {self.best_GAIndividual().hyperparameters}")
-        print(f"GA_rewards: {self.generational_rewards}")
+    
         pickle_write("GA_generational_hyperparameters.pkl", self.best_GAIndividual().hyperparameters)
         pickle_write("GA_rewards.pkl", self.generational_rewards)
-
-        print(f"Graphing Info: {self.generational_hyperparameters, self.generational_models}")
-        print(f"Rewards: {self.generational_rewards}")
 
         eval_rewards = []
         for i in range(100):
             eval_reward = self.best_GAIndividual().evaluate_agent()
             eval_rewards.append(eval_reward)
         pickle_write("genetic_eval.pkl", eval_rewards)
-        print(f"Evaluation_reward: {eval_rewards}")
 
         return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters, eval_reward
 
