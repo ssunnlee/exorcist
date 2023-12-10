@@ -123,7 +123,7 @@ class GeneticAlgorithmForPPO:
         for i in range(100):
             eval_reward = self.best_GAIndividual().evaluate_agent()
             eval_rewards.append(eval_reward)
-        pickle_write("Evaluation_reward.pkl", eval_rewards)
+        pickle_write("genetic_eval.pkl", eval_rewards)
         print(f"Evaluation_reward: {eval_rewards}")
 
         return self.best_GAIndividual(), self.best_GAIndividual().hyperparameters, eval_reward
