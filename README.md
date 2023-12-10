@@ -1,6 +1,8 @@
 # exorcist
 Demon Attack AI
 
+To run the entire project, simply run main.py, and then use project.ipynb to show final results. project.ipynb may have to be edited for file names.
+
 PPO.py: Includes the class PPO, which given the hyperparameters, state space size, and action space size, returns a PPO agent that can be trained and evaluated.
 
 GA.py: Includes the genetic algorithm implementation. Running the main function (GA_main()) starts a GA loop with the given parameters, tunes the optimal hyperparameters, trains a PPO agent using the hyperparameters, and evaluates it. It writes the relevant results in .pkl files.
@@ -14,5 +16,3 @@ project.html: html version of the above Jupyter Notebook with results from our o
 main.py: Runs both GA_main() and BO_main() for one test run on GA and BO each.
 
 bayesian_eval.pkl, genetic_eval.pkl: pickle files including results for the 100 evaluation runs from our GA and BO.
-
-To run the project, simply run main.py, and then use project.ipynb to show final results. project.ipynb may have to be edited for file names.
